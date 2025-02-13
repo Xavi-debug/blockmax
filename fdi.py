@@ -16,8 +16,13 @@ class SecurityMonitor:
         self.connection_count = defaultdict(int)
         self.blocked_ips = set()
         self.logger = self._setup_logger()
-        self.yara_rules = yara.compile('rules.yar')  # Compilar reglas YARA una vez
-        self.scanning = False
+        
+        # Intenta cargar las reglas YARA
+        try:
+            self.yara_rules = yara.compile('rules.yar')  # Compilar reglas YARA una vez
+        except yara.Error as e:
+            self.logger.error(f"Error al compilar reglas YARA: {e}")
+            self.yara_rules = None  # Desactiva el escaneo YARA si no hay reglas
 
     def _setup_logger(self):
         logger = logging.getLogger('SecurityMonitor')
@@ -55,6 +60,11 @@ class SecurityMonitor:
             self.gui.update_log(f"Error al aplicar regla de firewall: {e}")
 
     def scan_files(self, path):
+        if self.yara_rules is None:
+            self.logger.error("No se pueden escanear archivos: reglas YARA no cargadas")
+            self.gui.update_log("No se pueden escanear archivos: reglas YARA no cargadas")
+            return
+
         try:
             for root, _, files in os.walk(path):
                 for file in files:
